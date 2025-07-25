@@ -24,7 +24,9 @@ The main analysis of the dataset is composed of :
 The code provided in this repository only contains the functions/scripts essentials to the final analysis of data and creation of the visuals, including :
 - *significance_array.py* to compute the linear regression, the p-value and display them in an array
 - *arrays_summary.py* to gather the results from *significance_array.py*
-- *array_with_CI* has the same data as the ones given by *significance_array.py*, and adding the computation of 95 % CIs through bootstraping
-- *diagram.py* to build a bar diagram representing the evolutions and the initial number of search for each significant word for each language, finally adding the CIs
-- *diagrams_combined.py* builds the figure gathering the diagrams built with diagram.py
-- *evolution_comparison.py* rearranges the data to compare each language for any significant word
+- *diagrams.py* to compute the same data as the ones previously mentionned in *significance_array.py* but also the CIs through bootstraping. Then it displays the bar diagrams related to the analysis.
+- *comparison.py* rearranges the data to compare each language for any significant word
+
+**The notebook**
+
+The notebook *Twitter_analysis.ipynb* shows the visuals created thanks to the code mentionned above, and adds explanations about each step of the analysis. The display of the figures might be compressed on the notebook. Thus, you can download the figures in the file *visuals/* to better visualize them.
