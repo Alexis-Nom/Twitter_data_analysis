@@ -22,8 +22,8 @@ The main analysis of the dataset is composed of :
 **The code**
 
 The code provided in this repository only contains the functions/scripts essentials to the final analysis of data and creation of the visuals, including :
-- *significance_array.py* to compute the linear regression, the p-value and display them in an array
-- *arrays_summary.py* to gather the results from *significance_array.py*
+- *significance_table.py* to compute the linear regression, the p-value and display them in a table
+- *tables_summary.py* to gather the results from *significance_array.py*
 - *diagrams.py* to compute the same data as the ones previously mentionned in *significance_array.py* but also the CIs through bootstraping. Then it displays the bar diagrams related to the analysis.
 - *comparison.py* rearranges the data to compare each language for any significant word
 
