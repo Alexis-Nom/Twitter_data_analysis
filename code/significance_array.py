@@ -1,3 +1,5 @@
+###----------------------------- LIBRARIES --------------------------###
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -6,11 +8,11 @@ from tqdm import tqdm
 import seaborn as sns
 import matplotlib.colors
 
-# initialize colormap (use of seaborn)
-spectral_cmap = sns.color_palette("Spectral_r", as_cmap=True)
 
+
+###----------------------------- ANALYSIS FUNCTIONS -------------------------------------###
 # 1. Regression and Analysis Functions (unchanged)
-def manual_linear_regression(x, y):
+def linear_regression(x, y):
     '''
     Compute the linear regression for a given dataset of coordinates (x,y).
     
@@ -46,9 +48,10 @@ def manual_linear_regression(x, y):
 
     return m, b, r2, y_pred
 
-def permutation_test(observed_data, n_permutations=120):
+def permutation_test(x, observed_data, all_perms, n_permutations=120):
   '''
   Make a permutation test for a given dataset and returns the p-value associated.
+  In our case, we compute the p-value by computing the slope (and counting the ones as extreme as the observed one) for each reshuffled dataset.
 
   Parameters
   ---
@@ -59,81 +62,44 @@ def permutation_test(observed_data, n_permutations=120):
   ---
   extreme_count / n_permutations (float) : the p-value
   '''
-    obs_slope = manual_linear_regression(x, observed_data)[0]
-    extreme_count = 0
+  obs_slope = linear_regression(x, observed_data)[0]
+  extreme_count = 0
 
-    for perm in all_perms[:n_permutations]:
-        perm_slope = manual_linear_regression(x, observed_data[list(perm)])[0]
-        if abs(perm_slope) >= abs(obs_slope):
-            extreme_count += 1
+  for perm in all_perms[:n_permutations]:
+      perm_slope = linear_regression(x, observed_data[list(perm)])[0]
+      if abs(perm_slope) >= abs(obs_slope):
+          extreme_count += 1
 
-    return extreme_count / n_permutations
+  return extreme_count / n_permutations
 
-# 2. Data Loading - SPANISH TERMS (Columns W-AA)
-df = pd.read_excel("Data_adapted.xlsx", sheet_name="Chiffres 2015-2024", header=None)
-years = np.array([2015, 2016, 2017, 2018, 2019])
-x = years - years[0]  # reset the numbers to [0,1,2,3,4] for easily deal with indexes
-all_perms = list(permutations(range(5)))
+###------------------------- STYLING FUNCTIONS ---------------------------###
 
-# process SPANISH terms (columns 22-26 = W-AA) with ENGLISH labels
-results = []
-for row_idx in tqdm(range(2, 41), desc="Processing Spanish trends"):
-    # extract English term name for labeling
-    english_term = df.iloc[row_idx, 0].split('—')[1].strip().split('-')[0].strip()
-
-    # get Spanish data values (columns W-AA = indexes 22 to 27)
-    queries = df.iloc[row_idx, 22:27].values.astype(float)
-
-    # skip rows with invalid data
-    if len(queries) != 5 or np.isnan(queries).any():
-        continue
-
-    slope, intercept, r2, y_pred = manual_linear_regression(x, queries)
-    p_value = permutation_test(queries)
-  
-
-    first_value = queries[0]
-
-    results.append({
-        'Term': english_term, 
-        'R\u00B2': r2,
-        'p-value': p_value,
-        'Slope': slope,
-        '2015_Value': first_value,
-        'Significant': (r2 >= 0.7) & (p_value <= 0.05)
-    })
-
-# create dataFrame
-output_df = pd.DataFrame(results)
-num_significant = output_df['Significant'].sum()
-
-# styling functions 
 def threshold_coloring(val, column):
   '''
   It colors the columns R2 and p-value, centering the colormap on the respective thresholds (0.7 for the R2 and 0.05 for the p-value)
-  Blue (cold) colors do not respect the threshold and red (hot) colors respect it.
+  Blue (cold) colors do not respect the threshold and red (warm) colors respect it.
 
   '''
-    if pd.isna(val):
-        return ''
+  if pd.isna(val):
+      return ''
 
-    if column == 'R\u00B2':
-        if val >= 0.7:
-            normalized = 1-(val - 0.7) / 0.3
-            color_value = 1.0 - (0.3 * normalized)
-            color = spectral_cmap(color_value)
-        else:
-            normalized = val / 0.7
-            color = spectral_cmap(0.25 * normalized)
-    elif column == 'p-value':
-        if val <= 0.05:
-            normalized = 1-(0.05 - val) / 0.05
-            color_value = 1.0 - (0.3 * normalized)
-            color = spectral_cmap(color_value)
-        else:
-            normalized = (val - 0.05) / 0.95
-            color = spectral_cmap(0.25 * (1 - normalized))
-    return f'background-color: {matplotlib.colors.rgb2hex(color)}; color: white'
+  if column == 'R\u00B2':
+      if val >= 0.7:
+          normalized = 1-(val - 0.7) / 0.3
+          color_value = 1.0 - (0.3 * normalized)
+          color = spectral_cmap(color_value)
+      else:
+          normalized = val / 0.7
+          color = spectral_cmap(0.25 * normalized)
+  elif column == 'p-value':
+      if val <= 0.05:
+          normalized = 1-(0.05 - val) / 0.05
+          color_value = 1.0 - (0.3 * normalized)
+          color = spectral_cmap(color_value)
+      else:
+          normalized = (val - 0.05) / 0.95
+          color = spectral_cmap(0.25 * (1 - normalized))
+  return f'background-color: {matplotlib.colors.rgb2hex(color)}; color: white'
 
 def color_significant(val):
     if isinstance(val, bool):
@@ -141,173 +107,289 @@ def color_significant(val):
                 else 'color: white; background-color: #d01c8b')
     return ''
 
-# Sort and style
-output_df_sorted = output_df.sort_values(by='R\u00B2', ascending=False).reset_index(drop=True)
 
-styled_df = (
-    output_df_sorted.style
-    .format({
-        'R\u00B2': '{:.3f}',
-        'p-value': '{:.4f}',
-        'Slope': '{:.3f}',
-        '2015_Value': '{:,.0f}'
-    })
-    .set_properties(**{
-        'text-align': 'center',
-        'border': '1px solid #ddd'
-    })
-    .map(lambda x: threshold_coloring(x, 'R\u00B2'), subset=['R\u00B2'])
-    .map(lambda x: threshold_coloring(x, 'p-value'), subset=['p-value'])
-    .map(color_significant, subset=['Significant'])
-    .set_table_styles([
-        {'selector': 'th', 'props': [
-            ('background-color', '#404040'),
-            ('color', 'white'),
-            ('font-weight', 'bold')
-        ]},
-        {'selector': 'tr:hover', 'props': [('background-color', '#ffff99')]}
-    ])
-    .set_caption(f"<b>Spanish Trends Analysis</b> - {num_significant} significant terms (R²≥0.7, p≤0.05)")
-)
-
-# display results
-display(styled_df)
-styled_df.to_html('array_spanish.html')
-print("\nSignificant terms (Spanish search data):")
-for term in output_df[output_df['Significant']]['Term']:
-    print(f"- {term}")
-
-'''
-additionnal script for the other languages :
-
-# data Loading - ENGLISH TERMS (Columns M-Q)
-df = pd.read_excel("Data_adapted.xlsx", sheet_name="Chiffres 2015-2024", header=None)
-years = np.array([2015, 2016, 2017, 2018, 2019])
-x = years - years[0]  # [0,1,2,3,4]
-all_perms = list(permutations(range(5)))
-
-# process ENGLISH terms (columns 12-16 = M-Q)
-results = []
-for row_idx in tqdm(range(2, 41), desc="Processing English words"):
-    english_term = df.iloc[row_idx, 0].split('—')[1].strip().split('-')[0].strip()
-    queries = df.iloc[row_idx, 12:17].values.astype(float)  # M-Q columns
-
-    slope, intercept, r2, y_pred = manual_linear_regression(x, queries)
-    p_value = permutation_test(queries)
-    first_value = queries[0]
-
-    results.append({
-        'Term': english_term,
-        'R\u00B2': r2,
-        'p-value': p_value,
-        'Slope': slope,
-        '2015_Value': first_value,
-        'Significant': (r2 >= 0.7) & (p_value <= 0.05)
-    })
-
-# create DataFrame
-output_df = pd.DataFrame(results)
-num_significant = output_df['Significant'].sum()
-
-output_df_sorted = output_df.sort_values(by='R\u00B2', ascending=False).reset_index(drop=True)
-
-styled_df = (
-    output_df_sorted.style
-    .format({
-        'R\u00B2': '{:.3f}',
-        'p-value': '{:.4f}',
-        'Slope': '{:.3f}',
-        '2015_Value': '{:,.0f}'
-    })
-    .set_properties(**{
-        'text-align': 'center',
-        'border': '1px solid #ddd'
-    })
-    .map(lambda x: threshold_coloring(x, 'R\u00B2'), subset=['R\u00B2'])
-    .map(lambda x: threshold_coloring(x, 'p-value'), subset=['p-value'])
-    .map(color_significant, subset=['Significant'])
-    .set_table_styles([
-        {'selector': 'th', 'props': [
-            ('background-color', '#404040'),
-            ('color', 'white'),
-            ('font-weight', 'bold')
-        ]},
-        {'selector': 'tr:hover', 'props': [('background-color', '#ffff99')]}
-    ])
-    .set_caption(f"<b>English Trends Analysis</b> - {num_significant} significant terms (R²≥0.7, p≤0.05)")
-)
-
-# display results
-display(styled_df)
-styled_df.to_html('array_english.html')
-print("\nSignificant English terms:")
-for term in output_df[output_df['Significant']]['Term']:
-    print(f"- {term}")
+###-------------------------------- MAIN FUNCTIONS -----------------------------------###
 
 
-# data Loading and preparation
-df = pd.read_excel("Data_adapted.xlsx", sheet_name="Chiffres 2015-2024", header=None)
-years = np.array([2015, 2016, 2017, 2018, 2019])
-x = years - years[0]  # [0,1,2,3,4]
-all_perms = list(permutations(range(5)))
+def table_spanish():
+  '''
+  Build the table with the words, the R2 and p-value associated to their linear regression and 
 
-# process data
-results = []
-for row_idx in tqdm(range(2, 41), desc="Processing words"):
-    english_word = df.iloc[row_idx, 0].split('—')[1].strip().split('-')[0].strip()
-    queries = df.iloc[row_idx, 2:7].values.astype(float)
+  Parameters
+  ---
+  observed_data : numpy.ndarray
+    1D array of dependent variable value
 
-    slope, intercept, r2, y_pred = manual_linear_regression(x, queries)
-    p_value = permutation_test(queries)
-    first_value = queries[0]
+  Returns
+  ---
+  extreme_count / n_permutations (float) : the p-value
+  '''
+  df = pd.read_excel("Data_adapted.xlsx", sheet_name="Chiffres 2015-2024", header=None)
+  years = np.array([2015, 2016, 2017, 2018, 2019])
+  x = years - years[0]  # reset the numbers to [0,1,2,3,4] to easily deal with indexes
+  
+  
 
-    results.append({
-        'Term': english_word,
-        'R\u00B2': r2,
-        'p-value': p_value,
-        'Slope': slope,
-        '2015_Value': first_value,
-        'Significant': (r2 >= 0.7) & (p_value <= 0.05)
-    })
+  # process SPANISH terms (columns 22-26 = W-AA in the excel file) with ENGLISH labels
+  results = []
+  for row_idx in tqdm(range(2, 41), desc="Processing Spanish trends"):
+      # extract English term name for labeling
+      english_term = df.iloc[row_idx, 0].split('—')[1].strip().split('-')[0].strip()
 
-# create and styling results DataFrame
-output_df = pd.DataFrame(results)
-num_significant = output_df['Significant'].sum()
+      # get Spanish data values (columns W-AA = indexes 22 to 27)
+      queries = df.iloc[row_idx, 22:27].values.astype(float)
 
-# sort and style
-output_df_sorted = output_df.sort_values(by='R\u00B2', ascending=False).reset_index(drop=True)
+      # skip rows with invalid data
+      if len(queries) != 5 or np.isnan(queries).any():
+          continue
 
-styled_df = (
-    output_df_sorted.style
-    .format({
-        'R\u00B2': '{:.3f}',
-        'p-value': '{:.4f}',
-        'Slope': '{:.3f}',
-        '2015_Value': '{:,.0f}'
-    })
-    .set_properties(**{
-        'text-align': 'center',
-        'border': '1px solid #ddd'
-    })
-    .map(lambda x: threshold_coloring(x, 'R\u00B2'), subset=['R\u00B2'])
-    .map(lambda x: threshold_coloring(x, 'p-value'), subset=['p-value'])
-    .map(color_significant, subset=['Significant'])
-    .set_table_styles([
-        {'selector': 'th', 'props': [
-            ('background-color', '#404040'),
-            ('color', 'white'),
-            ('font-weight', 'bold')
-        ]},
-        {'selector': 'tr:hover', 'props': [('background-color', '#ffff99')]}
-    ])
-    .set_caption(f"<b>French Trends Analysis</b> - {num_significant} significant words (R²≥0.7, p≤0.05)")
-)
+      slope, intercept, r2, y_pred = linear_regression(x, queries)  #compute the linear regression as well as the coefficient of determination
+      
+      all_perms = list(permutations(range(5)))  # 5! = 120 different permutations
+      p_value = permutation_test(x,queries, all_perms) #compute the p-value
+    
 
-# display results
-display(styled_df)
-styled_df.to_html('array_french.html')
-# print significant words
-if num_significant > 0:
-    print("\nSignificant words:")
-    for word in output_df[output_df['Significant']]['Term']:
-        print(f"- {word}")
+      first_value = queries[0]  #retrieve the number of searches on 2015 to display it
+
+      results.append({
+          'Word': english_term, #no matter the language we display the names in English
+          'R\u00B2': r2,
+          'p-value': p_value,
+          'Slope': slope,
+          '2015_Value': first_value,
+          'Significant': (r2 >= 0.7) & (p_value <= 0.05)
+      })
+
+  # create the dataframe
+  output_df = pd.DataFrame(results)
+  num_significant = output_df['Significant'].sum()  #compute the number of significant words (to display it)
+
+
+  # sort the rows by the value of R2 (descending order)
+  output_df_sorted = output_df.sort_values(by='R\u00B2', ascending=False).reset_index(drop=True)
+
+  # initialize colormap (use of seaborn)*
+  global spectral_cmap
+  spectral_cmap = sns.color_palette("Spectral_r", as_cmap=True)
+  
+
+  styled_df = (
+      output_df_sorted.style
+      .format({
+          'R\u00B2': '{:.3f}',
+          'p-value': '{:.4f}',
+          'Slope': '{:.3f}',
+          '2015_Value': '{:,.0f}'
+      })
+      .set_properties(**{
+          'text-align': 'center',
+          'border': '1px solid #ddd'
+      })
+      .map(lambda x: threshold_coloring(x, 'R\u00B2'), subset=['R\u00B2'])
+      .map(lambda x: threshold_coloring(x, 'p-value'), subset=['p-value'])
+      .map(color_significant, subset=['Significant'])
+      .set_table_styles([
+          {'selector': 'th', 'props': [
+              ('background-color', '#404040'),
+              ('color', 'white'),
+              ('font-weight', 'bold')
+          ]},
+          {'selector': 'tr:hover', 'props': [('background-color', '#ffff99')]}
+      ])
+      .set_caption(f"<b>Spanish Trends Analysis</b> - {num_significant} significant terms (R²≥0.7, p≤0.05)")
+  )
+
+  # display the results
+  display(styled_df)
+  styled_df.to_html('table_spanish.html')
+  
+
+def table_english():
+  '''
+  Build the table with the words, the R2 and p-value associated to their linear regression and 
+
+  Parameters
+  ---
+  observed_data : numpy.ndarray
+    1D array of dependent variable value
+
+  Returns
+  ---
+  extreme_count / n_permutations (float) : the p-value
+  '''
+  df = pd.read_excel("Data_adapted.xlsx", sheet_name="Chiffres 2015-2024", header=None)
+  years = np.array([2015, 2016, 2017, 2018, 2019])
+  x = years - years[0]  # reset the numbers to [0,1,2,3,4] to easily deal with indexes
+  
+  
+
+  # process ENGLISH terms (columns 12-16 = M-Q in the excel file) with ENGLISH labels
+  results = []
+  for row_idx in tqdm(range(2, 41), desc="Processing English trends"):
+      # extract English term name for labeling
+      english_term = df.iloc[row_idx, 0].split('—')[1].strip().split('-')[0].strip()
+
+      # get Spanish data values (columns W-AA = indexes 22 to 27)
+      queries = df.iloc[row_idx, 12:17].values.astype(float)
+
+      # skip rows with invalid data
+      if len(queries) != 5 or np.isnan(queries).any():
+          continue
+
+      slope, intercept, r2, y_pred = linear_regression(x, queries)  #compute the linear regression as well as the coefficient of determination
+      
+      all_perms = list(permutations(range(5)))  # 5! = 120 different permutations
+      p_value = permutation_test(x,queries, all_perms) #compute the p-value
+    
+
+      first_value = queries[0]  #retrieve the number of searches on 2015 to display it
+
+      results.append({
+          'Word': english_term, #no matter the language we display the names in English
+          'R\u00B2': r2,
+          'p-value': p_value,
+          'Slope': slope,
+          '2015_Value': first_value,
+          'Significant': (r2 >= 0.7) & (p_value <= 0.05)
+      })
+
+  # create the dataframe
+  output_df = pd.DataFrame(results)
+  num_significant = output_df['Significant'].sum()  #compute the number of significant words (to display it)
+
+
+  # sort the rows by the value of R2 (descending order)
+  output_df_sorted = output_df.sort_values(by='R\u00B2', ascending=False).reset_index(drop=True)
+
+  # initialize colormap (use of seaborn)*
+  global spectral_cmap
+  spectral_cmap = sns.color_palette("Spectral_r", as_cmap=True)
+  
+
+  styled_df = (
+      output_df_sorted.style
+      .format({
+          'R\u00B2': '{:.3f}',
+          'p-value': '{:.4f}',
+          'Slope': '{:.3f}',
+          '2015_Value': '{:,.0f}'
+      })
+      .set_properties(**{
+          'text-align': 'center',
+          'border': '1px solid #ddd'
+      })
+      .map(lambda x: threshold_coloring(x, 'R\u00B2'), subset=['R\u00B2'])
+      .map(lambda x: threshold_coloring(x, 'p-value'), subset=['p-value'])
+      .map(color_significant, subset=['Significant'])
+      .set_table_styles([
+          {'selector': 'th', 'props': [
+              ('background-color', '#404040'),
+              ('color', 'white'),
+              ('font-weight', 'bold')
+          ]},
+          {'selector': 'tr:hover', 'props': [('background-color', '#ffff99')]}
+      ])
+      .set_caption(f"<b>English Trends Analysis</b> - {num_significant} significant terms (R²≥0.7, p≤0.05)")
+  )
+
+  # display the results
+  display(styled_df)
+  styled_df.to_html('table_english.html')
+
+
+
+def table_french():
+  '''
+  Build the table with the words, the R2 and p-value associated to their linear regression and 
+
+  Parameters
+  ---
+  observed_data : numpy.ndarray
+    1D array of dependent variable value
+
+  Returns
+  ---
+  extreme_count / n_permutations (float) : the p-value
+  '''
+  df = pd.read_excel("Data_adapted.xlsx", sheet_name="Chiffres 2015-2024", header=None)
+  years = np.array([2015, 2016, 2017, 2018, 2019])
+  x = years - years[0]  # reset the numbers to [0,1,2,3,4] to easily deal with indexes
+  
+  
+
+  # process FRENCH terms (columns 2-6 = B-F in the excel file) with ENGLISH labels
+  results = []
+  for row_idx in tqdm(range(2, 41), desc="Processing French trends"):
+      # extract French term name for labeling
+      english_term = df.iloc[row_idx, 0].split('—')[1].strip().split('-')[0].strip()
+
+      # get French data values (columns B-F = indexes 2 to 6)
+      queries = df.iloc[row_idx, 2:7].values.astype(float)
+
+      # skip rows with invalid data
+      if len(queries) != 5 or np.isnan(queries).any():
+          continue
+
+      slope, intercept, r2, y_pred = linear_regression(x, queries)  #compute the linear regression as well as the coefficient of determination
+      
+      all_perms = list(permutations(range(5)))  # 5! = 120 different permutations
+      p_value = permutation_test(x,queries, all_perms) #compute the p-value
+    
+
+      first_value = queries[0]  #retrieve the number of searches on 2015 to display it
+
+      results.append({
+          'Word': english_term, #no matter the language we display the names in English
+          'R\u00B2': r2,
+          'p-value': p_value,
+          'Slope': slope,
+          '2015_Value': first_value,
+          'Significant': (r2 >= 0.7) & (p_value <= 0.05)
+      })
+
+  # create the dataframe
+  output_df = pd.DataFrame(results)
+  num_significant = output_df['Significant'].sum()  #compute the number of significant words (to display it)
+
+
+  # sort the rows by the value of R2 (descending order)
+  output_df_sorted = output_df.sort_values(by='R\u00B2', ascending=False).reset_index(drop=True)
+
+  # initialize colormap (use of seaborn)*
+  global spectral_cmap
+  spectral_cmap = sns.color_palette("Spectral_r", as_cmap=True)
+  
+
+  styled_df = (
+      output_df_sorted.style
+      .format({
+          'R\u00B2': '{:.3f}',
+          'p-value': '{:.4f}',
+          'Slope': '{:.3f}',
+          '2015_Value': '{:,.0f}'
+      })
+      .set_properties(**{
+          'text-align': 'center',
+          'border': '1px solid #ddd'
+      })
+      .map(lambda x: threshold_coloring(x, 'R\u00B2'), subset=['R\u00B2'])
+      .map(lambda x: threshold_coloring(x, 'p-value'), subset=['p-value'])
+      .map(color_significant, subset=['Significant'])
+      .set_table_styles([
+          {'selector': 'th', 'props': [
+              ('background-color', '#404040'),
+              ('color', 'white'),
+              ('font-weight', 'bold')
+          ]},
+          {'selector': 'tr:hover', 'props': [('background-color', '#ffff99')]}
+      ])
+      .set_caption(f"<b>French Trends Analysis</b> - {num_significant} significant terms (R²≥0.7, p≤0.05)")
+  )
+
+  # display the results
+  display(styled_df)
+  styled_df.to_html('table_french.html')
+  
+
+
+
