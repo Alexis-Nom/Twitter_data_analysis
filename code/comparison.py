@@ -6,56 +6,61 @@ import numpy as np
 
 ###---------------------------------------- DATA TRANSFORMATION -------------------------------###
 
-# we adapt the shape of the data so we can easily handle it for comparison
-french_df = pd.DataFrame({
-    'word': ['Shiatsu', 'Reflexology', 'Yoga', 'Ketogenic diet', 'Complementary medicine',
-             'Homeopathy', 'Chiropractic', 'Reiki', 'Ayurveda', 'Shamanism', 'Tai chi'],
-    'slope': [-1694, -5676.8, -19738, 432.8, 70.5, 33281.8, 2454.7, -3629.1, -144.5, 281, -1804.3]
-})
+def modify_data_shape():
 
-english_df = pd.DataFrame({
-    'word': ['Yoga', 'Shiatsu', 'Reiki', 'Meditation', 'Reflexology', 'Hypnotherapy',
-             'Osteopathy', 'Acupuncture', 'Qigong', 'Intermittent fasting', 'Moxibustion',
-             'Ayurveda', 'Integrative medicine'],
-    'slope': [-2113203.1, -21331, -95214.4, -786175.5, -23404.3, -34822.2, -6909, -89451.9,
-              -12733, 46095.5, -1772.9, -27278.3, -1827.7]
-})
+  ''' 
+  adapt the shape of the data so we can easily handle it for comparison
+  '''
 
-spanish_df = pd.DataFrame({
-    'word': ['Energy healing', 'Reflexology', 'Forest bathing / Sylvotherapy', 'Neurofeedback',
-             'Integrative medicine', 'Meditation', 'Intermittent fasting', 'Reiki'],
-    'slope': [-85.5, -3015.7, 35.9, -514.3, 760.5, -63200, 6815.5, -30248.2]
-})
+  french_df = pd.DataFrame({
+      'word': ['Shiatsu', 'Reflexology', 'Yoga', 'Ketogenic diet', 'Complementary medicine',
+              'Homeopathy', 'Chiropractic', 'Reiki', 'Ayurveda', 'Shamanism', 'Tai chi'],
+      'slope': [-1694, -5676.8, -19738, 432.8, 70.5, 33281.8, 2454.7, -3629.1, -144.5, 281, -1804.3]
+  })
 
-# combine all unique words (union)
-all_words = list(set(french_df['word']).union(english_df['word']).union(spanish_df['word']))
+  english_df = pd.DataFrame({
+      'word': ['Yoga', 'Shiatsu', 'Reiki', 'Meditation', 'Reflexology', 'Hypnotherapy',
+              'Osteopathy', 'Acupuncture', 'Qigong', 'Intermittent fasting', 'Moxibustion',
+              'Ayurveda', 'Integrative medicine'],
+      'slope': [-2113203.1, -21331, -95214.4, -786175.5, -23404.3, -34822.2, -6909, -89451.9,
+                -12733, 46095.5, -1772.9, -27278.3, -1827.7]
+  })
 
-# build the unified data structure
-data = []
-for word in all_words:
-    entry = {'word': word}
+  spanish_df = pd.DataFrame({
+      'word': ['Energy healing', 'Reflexology', 'Forest bathing / Sylvotherapy', 'Neurofeedback',
+              'Integrative medicine', 'Meditation', 'Intermittent fasting', 'Reiki'],
+      'slope': [-85.5, -3015.7, 35.9, -514.3, 760.5, -63200, 6815.5, -30248.2]
+  })
 
-    # French slope (if exists)
-    french_match = french_df[french_df['word'] == word]
-    entry['french'] = french_match['slope'].values[0] if not french_match.empty else None
+  # combine all unique words (union)
+  all_words = list(set(french_df['word']).union(english_df['word']).union(spanish_df['word']))
 
-    # English slope (if exists)
-    english_match = english_df[english_df['word'] == word]
-    entry['english'] = english_match['slope'].values[0] if not english_match.empty else None
+  # build the unified data structure
+  data = []
+  for word in all_words:
+      entry = {'word': word}
 
-    # Spanish slope (if exists)
-    spanish_match = spanish_df[spanish_df['word'] == word]
-    entry['spanish'] = spanish_match['slope'].values[0] if not spanish_match.empty else None
+      # French slope (if exists)
+      french_match = french_df[french_df['word'] == word]
+      entry['french'] = french_match['slope'].values[0] if not french_match.empty else None
 
-    data.append(entry)
+      # English slope (if exists)
+      english_match = english_df[english_df['word'] == word]
+      entry['english'] = english_match['slope'].values[0] if not english_match.empty else None
 
-# sort alphabetically for cleaner Y-axis
-data = sorted(data, key=lambda x: x['word'])
+      # Spanish slope (if exists)
+      spanish_match = spanish_df[spanish_df['word'] == word]
+      entry['spanish'] = spanish_match['slope'].values[0] if not spanish_match.empty else None
 
+      data.append(entry)
+
+  # sort alphabetically for cleaner Y-axis
+  data = sorted(data, key=lambda x: x['word'])
+  return data
 
 ###---------------------------------------------------- FIGURE CREATION ---------------------------------------------------###
 
-def create_fig_comp():
+def create_fig_comp(data):
   # create figure with external legend space
   plt.figure(figsize=(12, 8), dpi=100)
   ax = plt.gca()
@@ -116,4 +121,10 @@ def create_fig_comp():
   plt.title("Significant Trends in Alternative Medicine Terms", pad=20, fontsize=14)
   plt.tight_layout(rect=[0, 0, 0.85, 1])  # Make space for external legend
   plt.show()
+
+###---------------------------------------- MAIN FUNCTION ------------------------------------------###
+
+def compare_fig():
+  data = modify_data_shape()
+  create_fig_comp(data)
 
